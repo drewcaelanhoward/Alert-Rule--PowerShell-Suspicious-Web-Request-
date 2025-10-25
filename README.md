@@ -1,15 +1,17 @@
-# Threat Hunt Report: Unauthorized TOR Usage Project
-- [Scenario Creation](https://github.com/drewcaelanhoward/threat-hunting-scenario-tor/blob/main/threat-hunting-scenario-tor-event-creation.md)
+# Alert Rule Powershell Suspicious Web Requests
 
 ## Platforms and Languages Leveraged
+- Microsoft Sentinel
 - Windows 10 Virtual Machines (Microsoft Azure)
 - EDR Platform: Microsoft Defender for Endpoint
 - Kusto Query Language (KQL)
-- Tor Browser
+
 
 ##  Scenario
 
-Management suspects that some employees may be using TOR browsers to bypass network security controls because recent network logs show unusual encrypted traffic patterns and connections to known TOR entry nodes. Additionally, there have been anonymous reports of employees discussing ways to access restricted sites during work hours. The goal is to detect any TOR usage and analyze related security incidents to mitigate potential risks. If any use of TOR is found, notify management.
+Sometimes when a bad actor has access to a system, they will attempt to download malicious payloads or tools directly from the internet to expand their control or establish persistence. This is often achieved using legitimate system utilities like PowerShell to blend in with normal activity. By leveraging commands such as Invoke-WebRequest, they can download files or scripts from an external server and immediately execute them, bypassing traditional defenses or detection mechanisms. This tactic is a hallmark of post-exploitation activity, enabling them to deploy malware, exfiltrate data, or establish communication channels with a command-and-control (C2) server. Detecting this behavior is critical to identifying and disrupting an ongoing attack.
+
+When processes are executed/run on the local VM, logs will be forwarded to Microsoft Defender for Endpoint under the DeviceProcessEvents table. These logs are then forwarded to the Log Analytics Workspace being used by Microsoft Sentinel, our SIEM. Within Sentinel, we will define an alert to trigger when PowerShell is used to download a remote file from the internet. 
 
 ### High-Level TOR-Related IoC Discovery Plan
 
@@ -21,22 +23,22 @@ Management suspects that some employees may be using TOR browsers to bypass netw
 
 ## Steps Taken
 
-### 1. Searched the `DeviceFileEvents` Table
+### Part 1: Create Alert Rule (PowerShell Suspicious Web Request)
 
-Searched for any file that had the string "tor" in it and discovered what looks like the user "employee" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2025-10-22T17:28:59.883726Z` These events began at `2025-10-22T17:28:59.883726Z`.
+Created a Sentinel scheduled query rule within Log Analytics that will discover when PowerShell is detected using Invoke-WebRequest to download content.
+
+Sentinel → Analytics → Schedule Query Rule
 
 **Query used to locate events:**
 
 ```kql
-DeviceFileEvents  
-| where DeviceName == "dh-test-vuln"
-| where InitiatingProcessAccountName == "dh"
-| where FileName contains "tor"
-| where Timestamp >= datetime(2025-10-22T17:28:59.883726Z)
-| order by Timestamp desc  
-| project Timestamp, DeviceName, ActionType, FileName, FolderPath, SHA256, Account = InitiatingProcessAccountName
+DeviceProcessEvents
+|where DeviceName == "windows-target-1"
+|where FileName == "powershell.exe"
+| where ProcessCommandLine contains "Invoke-WebRequest"
+| project TimeGenerated, AccountName, AccountSid, DeviceName, InitiatingProcessCommandLine, ProcessCommandLine
 ```
-<img width="1364" height="437" alt="image" src="https://github.com/user-attachments/assets/ba85f3d0-b420-4dd2-b407-3721a201b232" />
+<img width="858" height="176" alt="Invoke-WebRequest-Rule" src="https://github.com/user-attachments/assets/03c7084d-41bb-4bde-bc39-1da5ad83bc81" />
 
 ---
 
