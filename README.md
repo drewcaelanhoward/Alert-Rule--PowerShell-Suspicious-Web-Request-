@@ -42,9 +42,12 @@ DeviceProcessEvents
 
 ---
 
-### 2. Searched the `DeviceProcessEvents` Table
+### Part 2: Wait for Alert to trigger an Incident
 
-Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64-portable-14.0.1.exe". Based on the logs returned, at `2025-10-22T17:28:59.1193171Z`, an employee on the "dh-test-vuln" device ran the file `tor-browser-windows-x86_64-portable-14.5.8.exe` from their Downloads folder, using a command that triggered a silent installation.
+Once alert the alert triggered and created an incident, I assigned it to myself and proceeded to investigate the incident. 
+
+<img width="957" height="973" alt="IncidentSC" src="https://github.com/user-attachments/assets/52189051-6a0c-4a96-ac2c-2ed7dc4fb1b1" />
+
 
 **Query used to locate event:**
 
