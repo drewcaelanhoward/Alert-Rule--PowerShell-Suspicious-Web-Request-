@@ -1,11 +1,5 @@
 # Alert Rule Powershell Suspicious Web Requests
 
-## Platforms and Languages Leveraged
-- Microsoft Sentinel
-- Windows 10 Virtual Machines (Microsoft Azure)
-- EDR Platform: Microsoft Defender for Endpoint
-- Kusto Query Language (KQL)
-
 
 ##  Scenario
 
@@ -15,7 +9,11 @@ When processes are executed/run on the local VM, logs will be forwarded to Micro
 
 
 ---
-
+## Platforms and Languages Leveraged
+- Microsoft Sentinel
+- Windows 10 Virtual Machines (Microsoft Azure)
+- EDR Platform: Microsoft Defender for Endpoint
+- Kusto Query Language (KQL)
 ## Steps Taken
 
 ## Part 1: Create Alert Rule (PowerShell Suspicious Web Request)
