@@ -1,4 +1,4 @@
-# Alert Rule Powershell Suspicious Web Requests
+# Alert Rule: Powershell Suspicious Web Requests
 
 
 ##  Scenario
