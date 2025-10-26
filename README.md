@@ -84,7 +84,7 @@ DeviceProcessEvents
 
 ### Containment, Eradication, and Recovery
 
-Since it was determined these potentially malicious files were donwloaded and executed, to prevent further damage/infection to the network I isolated the device "windows-target-1" using Microsoft Defender for Endpoint and ran an Anti-Virus scan of the device. 
+Since it was determined these potentially malicious files were donwloaded and executed, to prevent further damage/infection to the network I isolated the device "windows-target-1" using Microsoft Defender for Endpoint and ran an Anti-Virus scan on the device. 
 
 <img width="326" height="524" alt="image" src="https://github.com/user-attachments/assets/f6c117ba-5315-4e14-8353-608d473335fe" />
 
