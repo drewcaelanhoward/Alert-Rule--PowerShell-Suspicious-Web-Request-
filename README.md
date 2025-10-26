@@ -1,5 +1,5 @@
 # Alert Rule: Powershell Suspicious Web Requests
-h
+
 
 ##  Scenario
 
